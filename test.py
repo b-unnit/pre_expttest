@@ -129,7 +129,7 @@ def check_optimized_molecule(
 
   def get_xyz(
       dataset: str, mol_name: str, level_theory: str, collection_type: str = "OptimizationDataset"
-  )
+  ):
     """
     Extract the xyz of the molecule
 
