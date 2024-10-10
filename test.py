@@ -61,7 +61,7 @@ This CLI is part of the Binding Energy Evaluation Platform (BEEP).
     parser.add_argument(
         "--level-of-theory",
         default=["blyp_def2-svp"],
-        help="The level of theory in the format: method_basis (default: blyp_def2-svp)",
+        help="The level of theory in which the molecule is optimized, in the format: method_basis (default: blyp_def2-svp)",
     )
     parser.add_argument(
         "--tag",
@@ -128,4 +128,21 @@ def check_optimized_molecule(
 
 
   def get_xyz(
-    
+      dataset: str, mol_name: str, level_theory: str, collection_type: str = "OptimizationDataset"
+  )
+    """
+    Extract the xyz of the molecule
+
+    Args:
+    - dataset: dataset containing the molecule.
+    - mol_name: molecule name in the dataset.
+    - level_theory: Level of theory at which the molecule is optimized.
+    - collection_type: Type of optimization dataset (Default = OptimizationDataset.
+
+    Returns:
+    - XYZ file, including total number of atoms, charge, multiplicity and number of atom for each element present
+    """
+    ds_opt = client.get_collection(collection_type,dataset)
+    rr = ds_opt.get_record(mol_name, level_theory)
+    mol = rr.get_final_molecule()
+    print(mol.to_string(dtype="xyz"))
