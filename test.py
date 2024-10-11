@@ -1,3 +1,7 @@
+import qcportal as ptl
+
+
+
 def sampling_model_msg(
     mol_collection: str, target_mol: str, level_theory: str
 ) -> str:
@@ -128,7 +132,7 @@ def check_optimized_molecule(
 
 
   def get_xyz(
-      dataset: str, mol_name: str, level_theory: str, collection_type: str = "OptimizationDataset"
+      client_adress, username: str, password: str, dataset: str, mol_name: str, level_theory: str, collection_type: str = "OptimizationDataset", 
   ):
     """
     Extract the xyz of the molecule
@@ -142,7 +146,8 @@ def check_optimized_molecule(
     Returns:
     - XYZ file, including total number of atoms, charge, multiplicity and number of atom for each element present
     """
+    client = ptl.FractalClient(address=client_address, username = username, password = password, verify=False)
     ds_opt = client.get_collection(collection_type,dataset)
     rr = ds_opt.get_record(mol_name, level_theory)
     mol = rr.get_final_molecule()
-    print(mol.to_string(dtype="xyz"))
+    return(mol.to_string(dtype="xyz"))
