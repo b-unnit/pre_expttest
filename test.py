@@ -1,6 +1,6 @@
 import qcportal as ptl
-
-
+from molmass import Formula   #this is used to obtain the mass of the molecule
+from posym import SymmetryMolecule #used to obtain the symmetry of the molecule from the xyz
 
 def sampling_model_msg(
     mol_collection: str, target_mol: str, level_theory: str
@@ -131,23 +131,55 @@ def check_optimized_molecule(
             raise ValueError(f" Optimization has status {rr.status} restart it or wait")
 
 
-  def get_xyz(
-      client_adress, username: str, password: str, dataset: str, mol_name: str, level_theory: str, collection_type: str = "OptimizationDataset", 
-  ):
+def get_xyz(
+    client_adress, username: str, password: str, dataset: str, mol_name: str, level_theory: str, collection_type: str = "OptimizationDataset") -> List[str]:
     """
     Extract the xyz of the molecule
 
     Args:
+    - client_adress: 
+    - username:
+    - password:
     - dataset: dataset containing the molecule.
     - mol_name: molecule name in the dataset.
     - level_theory: Level of theory at which the molecule is optimized.
     - collection_type: Type of optimization dataset (Default = OptimizationDataset.
 
     Returns:
-    - XYZ file, including total number of atoms, charge, multiplicity and number of atom for each element present
+    - XYZ file, excluding total number of atoms, charge, multiplicity and number of atom for each element present
     """
     client = ptl.FractalClient(address=client_address, username = username, password = password, verify=False)
     ds_opt = client.get_collection(collection_type,dataset)
     rr = ds_opt.get_record(mol_name, level_theory)
     mol = rr.get_final_molecule()
-    return(mol.to_string(dtype="xyz"))
+    geom = mol.to_string(dtype="xyz")
+    xyz = geom.splitlines()[2:]     #can use '\n'.join() if the list is not useful
+    return(xyz)
+
+
+def get_mass(
+    mol: str) -> float:
+    """
+    Calculates the mass of a molecule. Utilizes the molmass package.
+    """
+    f = Formula(mol)
+    return(f.mass)
+
+
+def sym_num(
+    xyz: list):
+    """
+    Gives the symmetry number from the xyz (im not exaaaaactly sure how it works)
+
+    Args:
+    - xyz: xyz file (only coordinates, no multiplicity, charge, etc)
+
+    Returns:
+    - 
+    """
+    split_xyz = [s.split() for s in xyz]
+        
+    coordinates = [item[1:] for item in split_xyz]
+    symbols = [item[0] for item in split_xyz]
+
+    
