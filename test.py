@@ -176,16 +176,50 @@ def sym_num(
     xyz: str):
     """
     Gives the symmetry number from the xyz (im not exaaaaactly sure how it works)
-
+    Symmetry numbers given by tables By P. W. ATKINS, M. S. CHILD, and C. S. G. PHILLIPS
+    
     Args:
     - xyz: xyz file (only coordinates, no multiplicity, charge, etc)
 
     Returns:
-    - 
+    - Symmetry number
     """
-    split_xyz = [s.split() for s in xyz]
-        
-    coordinates = [item[1:] for item in split_xyz]
-    symbols = [item[0] for item in split_xyz]
+    schema = qcel.models.Molecule.from_data(xyz).dict()
+    mol = molsym.Molecule.from_schema(schema)
+    pg, (paxis, saxis) = molsym.find_point_group(mol)
 
-    """Tables given by By P. W. ATKINS, M. S. CHILD, and C. S. G. PHILLIPS"""
+    point_group_to_sym_number = {
+        "C1": 1,
+        "Cs": 1,
+        "Ch": 1,
+        "Ci": 1,
+        "S2": 1,
+        "C2": 2,
+        "C3": 3,
+        "C4": 4,
+        "C5": 5,
+        "C6": 6,
+        "C7": 7,
+        "C8": 8,
+        "D2": 4,
+        "D3": 6,
+        "D4": 8,
+        "D5": 10,
+        "D6": 12,
+        "C2v": 2,
+        "C3v": 3,
+        "C4v": 4,
+        "C5v": 5,
+        "C6v": 6,
+        "C2h": 2,
+        "C3h": 3,
+        "C4h": 4,
+        "C5h": 5,
+        "C6h": 6,
+        "D2h": 4,
+        "D3h": 6,
+        "D4h": 8,
+    }
+    return(point_group_to_sym_number.get(pg, "Point group not found... that should not happen"))
+    
+    
