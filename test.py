@@ -73,7 +73,12 @@ This CLI is part of the Binding Energy Evaluation Platform (BEEP).
         default="tera_opt",
         help="The tag to use to specify the qcfractal-manager for the calculation (default: tera_opt)",
     )
-
+    parser.add_argument(
+        "--Range of temperatures",
+        type=str,
+        default="tera_opt",
+        help="The tag to use to specify the qcfractal-manager for the calculation (default: tera_opt)",
+    )
 
     return parser.parse_args()
 
@@ -151,9 +156,10 @@ def get_xyz(
     client = ptl.FractalClient(address=client_address, username = username, password = password, verify=False)
     ds_opt = client.get_collection(collection_type,dataset)
     rr = ds_opt.get_record(mol_name, level_theory)
-    mol = rr.get_final_molecule()
+    mol = rr.get_final_molecule()    
     geom = mol.to_string(dtype="xyz")
-    xyz = geom.splitlines()[2:]     #can use '\n'.join() if the list is not useful
+    xyz_list = geom.splitlines()[2:]     
+    xyz = '\n'.join(xyz_list)
     return(xyz)
 
 
@@ -167,7 +173,7 @@ def get_mass(
 
 
 def sym_num(
-    xyz: list):
+    xyz: str):
     """
     Gives the symmetry number from the xyz (im not exaaaaactly sure how it works)
 
@@ -182,4 +188,4 @@ def sym_num(
     coordinates = [item[1:] for item in split_xyz]
     symbols = [item[0] for item in split_xyz]
 
-    
+    """Tables given by By P. W. ATKINS, M. S. CHILD, and C. S. G. PHILLIPS"""
