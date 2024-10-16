@@ -14,15 +14,15 @@ Author: b-unnit, namrata-rani10
             """
 
 
-def sampling_model_msg(
-    mol_collection: str, target_mol: str, level_theory: str
+def calculation_msg(
+    mol_col: str, mol: str, level_theory: str
 ) -> str:
     """
-    Format a message for the start of sampling of a surface model.
+    Format a message for the start of the pre-exponential factor calculation.
 
     Args:
-    - mol_collection: Name of the molecule collection.
-    - target_mol: Name of the target molecule.
+    - mol_col: Name of the molecule collection.
+    - mol: Name of the target molecule.
     - level_theory: Method and basis at wich the molecule is optimized.
 
     Returns:
@@ -30,7 +30,7 @@ def sampling_model_msg(
     """
     return f"""
 -----------------------------------------------------------------------------------------
-Starting the calculation of the pre-exponential factor of the molecule {target_mol} in the collection {mol_collection} optimized at the {level_theory} level of theory
+Starting the calculation of the pre-exponential factor of the molecule {mol} in the collection {mol_col} optimized at the {level_theory} level of theory
 -----------------------------------------------------------------------------------------
     """
 
@@ -67,7 +67,7 @@ This CLI is part of the Binding Energy Evaluation Platform (BEEP).
     parser.add_argument(
         "--molecule",
         required=True,
-        help="The name of the molecule to be sampled (from a QCFractal OptimizationDataSet collection)",
+        help="Molecule to be sampled (from a QCFractal OptimizationDataSet collection). Type 'all' to calculate all molecules in a collection",
     )
     parser.add_argument(
         "--molecule-collection",
@@ -159,11 +159,17 @@ def get_xyz(
 
 
 def get_mass(
-    mol: str) -> float:
+    xyz: str) -> float:
     """
-    Calculates the mass of a molecule. Utilizes the molmass package.
+    Calculates the mass of a molecule. Utilizes the molmass package. Caps must be correctly used, so its extracted from the xyz.
     """
-    f = Formula(mol)
+    lines = xyz.strip().splitlines()
+    symbols = []
+    for line in lines:
+        parts = line.split()
+        symbols.append(parts[0])
+    mol_form = ''.join(symbols)
+    f = Formula(mol_form)
     return(f.mass)
 
 
@@ -179,11 +185,8 @@ def sym_num(
     Returns:
     - Symmetry number
     """
-    schema = qcel.models.Molecule.from_data(xyz).dict()
-    mol = molsym.Molecule.from_schema(schema)
-    pg, (paxis, saxis) = molsym.find_point_group(mol)
-
-    point_group_to_sym_number = {
+    
+    group_to_number = {
         "C1": 1, "Cs": 1, "Ch": 1, "Ci": 1, "S2": 1,
         "C2": 2, "C3": 3, "C4": 4, "C5": 5, "C6": 6, "C7": 7, "C8": 8,
         "D2": 4, "D3": 6, "D4": 8, "D5": 10, "D6": 12,
@@ -195,7 +198,15 @@ def sym_num(
         "T": 12, "Td": 12, "Th": 12, "O": 24, "Oh": 24,
         "I": 60, "Ih": 60,
     }
-    return(point_group_to_sym_number.get(pg, "Point group not found... that should not happen"))
+
+    schema = qcel.models.Molecule.from_data(xyz).dict()
+    mol = molsym.Molecule.from_schema(schema)
+    pg, (paxis, saxis) = molsym.find_point_group(mol)
+
+    if pg not in group_to_number:
+        raise Keyerror(f"Group {pg} not found in the dictionary... that shouldn't happen")
+
+    return(group_to_number.get(pg))
     
 
 def main():
@@ -231,6 +242,27 @@ def main():
     #Check for collection existence
     check_collection_existence(client, mol_col)
 
+
+    if mol == "all": 
     # Check if all the molecules are optimized at the requested level of theory
     check_optimized_molecule(mol_col, mol_lot, mol)
 
+    logger.info(
+        calculation_msg(mol_col, mol, mol_lot)
+    )
+            
+    #WRITE THE FOR CYCLE
+        
+    else:   
+    # Check if the molecule is optimized at the requested level of theory
+    check_optimized_molecule(mol_col, mol_lot, mol)
+
+    logger.info(
+        calculation_msg(mol_col, mol, mol_lot)
+    )    
+
+    mol_xyz = get_xyz(mol_col,mol,mol_lot)  #i think this might be necesary for the xyz to be read by the point group calculator
+    sym_num = sym_num(mol_xyz)
+    mol_mass = get_mass(mol_xyz)
+    
+    
