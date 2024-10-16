@@ -1,6 +1,18 @@
+import sys, time, argparse, logging
 import qcportal as ptl
-from molmass import Formula   #this is used to obtain the mass of the molecule
-from posym import SymmetryMolecule #used to obtain the symmetry of the molecule from the xyz
+from molmass import Formula   # this is used to obtain the mass of the molecule
+import numpy as np       # needed by molsym
+import qcelemental as qcel # needed by molsym
+import molsym # for the symmetry point
+
+welcome_msg = """       
+                  Welcome to the Pre-Exponential factor calculator! 
+
+Description: The pre-ext uses the xxxxxx formula uses xxxxxxx
+
+Author: b-unnit, namrata-rani10
+            """
+
 
 def sampling_model_msg(
     mol_collection: str, target_mol: str, level_theory: str
@@ -38,7 +50,7 @@ This CLI is part of the Binding Energy Evaluation Platform (BEEP).
     )
 
     parser.add_argument(
-        "--client_address",
+        "--client-address",
         default="localhost:7777",
         help="The URL address and port of the QCFractal server (default: localhost:7777)",
     )
@@ -66,26 +78,14 @@ This CLI is part of the Binding Energy Evaluation Platform (BEEP).
         "--level-of-theory",
         default=["blyp_def2-svp"],
         help="The level of theory in which the molecule is optimized, in the format: method_basis (default: blyp_def2-svp)",
-    )
-    parser.add_argument(
-        "--tag",
-        type=str,
-        default="tera_opt",
-        help="The tag to use to specify the qcfractal-manager for the calculation (default: tera_opt)",
-    )
-    parser.add_argument(
-        "--Range of temperatures",
-        type=str,
-        default="tera_opt",
-        help="The tag to use to specify the qcfractal-manager for the calculation (default: tera_opt)",
-    )
+    )          
 
     return parser.parse_args()
 
 
 def check_collection_existence(
     client: FractalClient,
-    *collections: List,
+    collection: List,
     collection_type: str = "OptimizationDataset",
 ):
     """
@@ -93,23 +93,22 @@ def check_collection_existence(
 
     Args:
     - client: QCFractal client object
-    - *collections: List of QCFractal Datasets.
+    - collection: QCFractal Datasets.
     - collection_type: type of Optimization Dataset
 
     Raises:
     - DatasetNotFound: If any of the specified collections do not exist.
     """
-    for collection in collections:
-        try:
-            client.get_collection(collection_type, collection)
-        except KeyError:
-            raise DatasetNotFound(
-                f"Collection {collection} does not exist. Please create it first. Exiting..."
-            )  
+    try:
+        client.get_collection(collection_type, collection)
+    except KeyError:
+        raise DatasetNotFound(
+            f"Collection {collection} does not exist. Please create it first. Exiting..."
+        )  
 
 
 def check_optimized_molecule(
-    ds: OptimizationDataset, opt_lot: str, mol_names: List[str]
+    ds: OptimizationDataset, opt_lot: str, mol_names: str
 ) -> None:
     """
     Check if all molecules are optimized at the requested level of theory.
@@ -117,34 +116,30 @@ def check_optimized_molecule(
     Args:
     - ds: OptimizationDataset containing the optimization records.
     - opt_lot: Level of theory string.
-    - mol_names: List of molecule names to check.
+    - mol: Molecule name to check.
 
     Raises:
     - LevelOfTheoryNotFound: If the level of theory for a molecule or the entry itself does not exist.
     - ValueError: If optimizations are incomplete or encountered an error.
     """
-    for mol in list(mol_names):
-        try:
-            rr = ds.get_record(mol, opt_lot)
-        except KeyError:
-            raise LevelOfTheoryNotFound(
-                f"{opt_lot} level of theory for {mol} or the entry itself does not exist in {ds.name} collection. Add the molecule and optimize it first\n"
-            )
-        if rr.status == "INCOMPLETE":
-            raise ValueError(f" Optimization has status {rr.status} restart it or wait")
-        elif rr.status == "ERROR":
-            raise ValueError(f" Optimization has status {rr.status} restart it or wait")
+    try:
+        rr = ds.get_record(mol, opt_lot)
+    except KeyError:
+        raise LevelOfTheoryNotFound(
+            f"{opt_lot} level of theory for {mol} or the entry itself does not exist in {ds.name} collection. Add the molecule and optimize it first\n"
+        )
+    if rr.status == "INCOMPLETE":
+        raise ValueError(f" Optimization has status {rr.status} restart it or wait")
+    elif rr.status == "ERROR":
+        raise ValueError(f" Optimization has status {rr.status} restart it or wait")
 
 
 def get_xyz(
-    client_adress, username: str, password: str, dataset: str, mol_name: str, level_theory: str, collection_type: str = "OptimizationDataset") -> List[str]:
+    dataset: str, mol_name: str, level_theory: str, collection_type: str = "OptimizationDataset") -> str:
     """
     Extract the xyz of the molecule
 
     Args:
-    - client_adress: 
-    - username:
-    - password:
     - dataset: dataset containing the molecule.
     - mol_name: molecule name in the dataset.
     - level_theory: Level of theory at which the molecule is optimized.
@@ -153,7 +148,7 @@ def get_xyz(
     Returns:
     - XYZ file, excluding total number of atoms, charge, multiplicity and number of atom for each element present
     """
-    client = ptl.FractalClient(address=client_address, username = username, password = password, verify=False)
+    #client = ptl.FractalClient(address=client_address, username = username, password = password, verify=False)
     ds_opt = client.get_collection(collection_type,dataset)
     rr = ds_opt.get_record(mol_name, level_theory)
     mol = rr.get_final_molecule()    
@@ -202,4 +197,40 @@ def sym_num(
     }
     return(point_group_to_sym_number.get(pg, "Point group not found... that should not happen"))
     
-    
+
+def main():
+    # Call the arguments
+    args = parse_arguments()
+
+    # Create a logger
+    logger = logging.getLogger("preexpt_calc")
+    logger.setLevel(logging.INFO)
+
+    # File handler for logging to a file
+    log_file = (
+        "pre_exp_factor_" + args.molecule + "_" + args.level_of_theory + ".log"
+    )
+    file_handler = logging.FileHandler(log_file)
+    file_handler.setFormatter(logging.Formatter("%(message)s"))
+    logger.addHandler(file_handler)
+
+    logger.info(welcome_msg)
+
+    client = ptl.FractalClient(  
+        address=args.client_address,
+        verify=False,
+        username=args.username,
+        password=args.password,
+    )
+
+    #Name of the molecule and level of theory    
+    mol = args.molecule
+    mol_col = args.molecule_collection
+    mol_lot = args.level_of_theory
+
+    #Check for collection existence
+    check_collection_existence(client, mol_col)
+
+    # Check if all the molecules are optimized at the requested level of theory
+    check_optimized_molecule(mol_col, mol_lot, mol)
+
