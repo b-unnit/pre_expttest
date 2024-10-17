@@ -108,7 +108,7 @@ def check_collection_existence(
 
 
 def check_optimized_molecule(
-    ds: OptimizationDataset, opt_lot: str, mol_names: str
+    ds: OptimizationDataset, opt_lot: str, mol: str
 ) -> None:
     """
     Check if all molecules are optimized at the requested level of theory.
@@ -261,7 +261,7 @@ def main():
         calculation_msg(mol_col, mol, mol_lot)
     )    
 
-    mol_xyz = get_xyz(mol_col,mol,mol_lot)  #i think this might be necesary for the xyz to be read by the point group calculator
+    mol_xyz = get_xyz(mol_col,mol,mol_lot)  
     sym_num = sym_num(mol_xyz)
     mol_mass = get_mass(mol_xyz)
     
