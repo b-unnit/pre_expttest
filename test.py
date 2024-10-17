@@ -1,7 +1,8 @@
 import sys, time, argparse, logging
+import math
+import numpy as np       # needed by molsym
 import qcportal as ptl
 from molmass import Formula   # this is used to obtain the mass of the molecule
-import numpy as np       # needed by molsym
 import qcelemental as qcel # needed by molsym
 import molsym # for the symmetry point
 
@@ -79,7 +80,13 @@ This CLI is part of the Binding Energy Evaluation Platform (BEEP).
         default=["blyp_def2-svp"],
         help="The level of theory in which the molecule is optimized, in the format: method_basis (default: blyp_def2-svp)",
     )          
+    parser.add_argument(
+        "--temperature",
+        default=["10"],
+        help="Temperature for the calculation, in K (default: 10)",
+    )  
 
+  
     return parser.parse_args()
 
 
