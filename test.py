@@ -345,7 +345,7 @@ def main():
         mol_mass = get_mass(symbols)
 
         #Alings cords with the z axis
-        align_coors = salign_to_z_axis(symbols, coordinates)
+        align_coors = align_to_z_axis(symbols, coordinates)
 
         #Calculate moment of inertia
         Ia, Ib, Ic = get_moments_of_inertia(symbols, coordinates)
