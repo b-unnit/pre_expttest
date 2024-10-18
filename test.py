@@ -320,25 +320,34 @@ def main():
 
 
     if mol == "all": 
-    # Check if all the molecules are optimized at the requested level of theory
-    check_optimized_molecule(mol_col, mol_lot, mol)
-
-    logger.info(
-        calculation_msg(mol_col, mol, mol_lot)
-    )
-            
-    #WRITE THE FOR CYCLE
+        for molecule in mol_col?
+        # Check if all the molecules are optimized at the requested level of theory
+        check_optimized_molecule(mol_col, mol_lot, mol)
+    
+        logger.info(
+            calculation_msg(mol_col, mol, mol_lot)
+        )
+                
+        #WRITE THE FOR CYCLE
         
     else:   
-    # Check if the molecule is optimized at the requested level of theory
-    check_optimized_molecule(mol_col, mol_lot, mol)
-
-    logger.info(
-        calculation_msg(mol_col, mol, mol_lot)
-    )    
-
-    mol_xyz = get_xyz(mol_col,mol,mol_lot)  
-    sym_num = sym_num(mol_xyz)
-    mol_mass = get_mass(mol_xyz)
+        # Check if the molecule is optimized at the requested level of theory
+        check_optimized_molecule(mol_col, mol_lot, mol)
     
+        logger.info(
+            calculation_msg(mol_col, mol, mol_lot)
+        )    
     
+        mol_xyz = get_xyz(mol_col,mol,mol_lot)  
+        sym_num = sym_num(mol_xyz)
+        mol_mass = get_mass(mol_xyz)
+    
+        Ia, Ib, Ic = get_moments_of_inertia(xyz)
+        logger.info(f"Principal moments of inertia for {mol} (kg·m²): Ia={Ia:.3e}, Ib={Ib:.3e}, Ic={Ic:.3e}")
+    
+        v = pre_exponential_factor(mol_mass, temp, sym_num, Ia, Ib, Ic)
+        logger.info(f"Pre-exponential factor for {mol} (v): {v:.3e} s⁻¹")
+
+
+    if __name__ == "__main__":
+    main()
