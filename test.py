@@ -177,7 +177,8 @@ def get_mass(
         symbols.append(parts[0])
     mol_form = ''.join(symbols)
     f = Formula(mol_form)
-    return(f.mass)
+    mass = f.mass * 1.66053906660e-27
+    return(mass)
 
 
 def sym_num(
@@ -214,7 +215,74 @@ def sym_num(
         raise Keyerror(f"Group {pg} not found in the dictionary... that shouldn't happen")
 
     return(group_to_number.get(pg))
+
+def get_moments_of_inertia(xyz):
+    """Calculate the principal moments of inertia from symbols and coordinates."""
+
+    symbols = []
+    coordinates = []
+
+    # Split input into lines and extract symbol + coordinates from each line
+    for line in xyz.strip().splitlines():
+        parts = line.split()
+        symbol = parts[0]
+        x, y, z = map(float, parts[1:])
+        symbols.append(symbol)
+        coordinates.append([x, y, z])
     
+    masses = np.array([get_atomic_mass(sym) for sym in symbols])
+    coords = np.array(coordinates) * 1e-10
+
+    # Calculate the center of mass
+    total_mass = np.sum(masses)
+    center_of_mass = np.sum(masses[:, np.newaxis] * coords, axis=0) / total_mass
+
+    # Shift coordinates to the center of mass
+    shifted_coords = coords - center_of_mass
+
+    # Calculate the moment of inertia tensor
+    I = np.zeros((3, 3))
+    for m, r in zip(masses, shifted_coords):
+        I[0, 0] += m * (r[1]**2 + r[2]**2)
+        I[1, 1] += m * (r[0]**2 + r[2]**2)
+        I[2, 2] += m * (r[0]**2 + r[1]**2)
+        I[0, 1] -= m * r[0] * r[1]
+        I[0, 2] -= m * r[0] * r[2]
+        I[1, 2] -= m * r[1] * r[2]
+
+    I[1, 0] = I[0, 1]
+    I[2, 0] = I[0, 2]
+    I[2, 1] = I[1, 2]
+
+    # Diagonalize the moment of inertia tensor to get principal moments
+    eigenvalues, _ = np.linalg.eigh(I)
+    Ia, Ib, Ic = np.sort(eigenvalues)  # Sort moments of inertia
+
+    # Adjust for linear molecules
+    if len(symbols) <= 3:  # Assuming linear for diatomic and triatomic
+        Ia = 0  # Set the moment of inertia along the molecular axis to zero
+
+    return Ia, Ib, Ic
+
+def pre_exponential_factor(m, T, sigma, Ia, Ib, Ic):
+    """Calculate the pre-exponential factor (v) for desorption."""
+    kB = 1.380649e-23  # Boltzmann constant in J/K
+    h = 6.62607015e-34  # Planck's constant in J·s
+    pi = math.pi
+
+    # Translational contribution
+    translational_part = ((2 * pi * m * kB * T) / h**2)**(3 / 2)
+
+    # Rotational contribution (considering Ia = 0 for linear molecules)
+    if Ia == 0:
+        rotational_part = (8 * pi**2 * kB * T / h**2)**(3 / 2) * math.sqrt(Ib * Ic)
+    else:
+        rotational_part = (8 * pi**2 * kB * T / h**2)**(3 / 2) * math.sqrt(Ia * Ib * Ic)
+
+    # Final pre-exponential factor
+    v = ((kB * T) / h) * translational_part * (pi**0.5 / sigma) * rotational_part
+
+    return v
 
 def main():
     # Call the arguments
@@ -245,7 +313,8 @@ def main():
     mol = args.molecule
     mol_col = args.molecule_collection
     mol_lot = args.level_of_theory
-
+    temp = args.temperature
+    
     #Check for collection existence
     check_collection_existence(client, mol_col)
 
