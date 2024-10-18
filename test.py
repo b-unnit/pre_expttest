@@ -166,7 +166,7 @@ def get_xyz(
 
 
 def get_mass(
-    symbols: str) -> float:
+    symbols: list) -> float:
     """
     Calculates the mass of a molecule. Utilizes the molmass package. Caps must be correctly used, so its extracted from the xyz.
     """
