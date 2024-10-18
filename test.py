@@ -166,18 +166,13 @@ def get_xyz(
 
 
 def get_mass(
-    xyz: str) -> float:
+    symbols: str) -> float:
     """
     Calculates the mass of a molecule. Utilizes the molmass package. Caps must be correctly used, so its extracted from the xyz.
     """
-    lines = xyz.strip().splitlines()
-    symbols = []
-    for line in lines:
-        parts = line.split()
-        symbols.append(parts[0])
     mol_form = ''.join(symbols)
     f = Formula(mol_form)
-    mass = f.mass * 1.66053906660e-27
+    mass = f.mass * 1.66053906660e-27 #convert masses to kg
     return(mass)
 
 
@@ -216,33 +211,45 @@ def sym_num(
 
     return(group_to_number.get(pg))
 
-def get_moments_of_inertia(xyz):
-    """Calculate the principal moments of inertia from symbols and coordinates."""
-
-    symbols = []
-    coordinates = []
-
-    # Split input into lines and extract symbol + coordinates from each line
-    for line in xyz.strip().splitlines():
+def parse_coordinates(input_string):
+    """Parse atomic symbols and their xyz coordinates."""
+    symbols, coordinates = [], []
+    for line in input_string.strip().splitlines():
         parts = line.split()
-        symbol = parts[0]
-        x, y, z = map(float, parts[1:])
-        symbols.append(symbol)
-        coordinates.append([x, y, z])
-    
-    masses = np.array([get_atomic_mass(sym) for sym in symbols])
-    coords = np.array(coordinates) * 1e-10
+        symbols.append(parts[0])
+        coordinates.append(list(map(float, parts[1:])))
+    return symbols, np.array(coordinates)
 
-    # Calculate the center of mass
+def align_to_z_axis(symbols, coordinates, threshold=1e-8):
+    """Align the molecule along the z-axis and zero out small values across all axes."""
+    masses = np.array([get_mass(sym) for sym in symbols])
     total_mass = np.sum(masses)
-    center_of_mass = np.sum(masses[:, np.newaxis] * coords, axis=0) / total_mass
 
-    # Shift coordinates to the center of mass
-    shifted_coords = coords - center_of_mass
+    # Center the molecule at the origin (set center of mass to [0, 0, 0])
+    center_of_mass = np.sum(masses[:, np.newaxis] * coordinates, axis=0) / total_mass
+    shifted_coords = coordinates - center_of_mass
 
-    # Calculate the moment of inertia tensor
+    # Use SVD to find the best alignment axis (SVD is numpy function to get the rotatational matrix to rotate the coordinates along z-axis)
+    _, _, vh = np.linalg.svd(shifted_coords)
+    rotation_matrix = vh.T
+
+    # Rotate the coordinates to align the molecule along the z-axis
+    aligned_coords = np.dot(shifted_coords, rotation_matrix)
+
+    # Zero out small values based on the threshold for all axes
+    aligned_coords[np.abs(aligned_coords) < threshold] = 0.0
+
+    return aligned_coords
+
+
+def get_moments_of_inertia(symbols, coordinates):
+    """Calculate the moments of inertia after alignment."""
+    masses = np.array([get_mass(sym) for sym in symbols])
+    coords = coordinates * 1e-10  # Convert to meters
+
+    # Initialize the inertia tensor
     I = np.zeros((3, 3))
-    for m, r in zip(masses, shifted_coords):
+    for m, r in zip(masses, coords):
         I[0, 0] += m * (r[1]**2 + r[2]**2)
         I[1, 1] += m * (r[0]**2 + r[2]**2)
         I[2, 2] += m * (r[0]**2 + r[1]**2)
@@ -250,20 +257,14 @@ def get_moments_of_inertia(xyz):
         I[0, 2] -= m * r[0] * r[2]
         I[1, 2] -= m * r[1] * r[2]
 
-    I[1, 0] = I[0, 1]
-    I[2, 0] = I[0, 2]
-    I[2, 1] = I[1, 2]
+    # Fill symmetric elements
+    I[1, 0], I[2, 0], I[2, 1] = I[0, 1], I[0, 2], I[1, 2]
 
-    # Diagonalize the moment of inertia tensor to get principal moments
+    # Diagonalize the inertia tensor
     eigenvalues, _ = np.linalg.eigh(I)
-    Ia, Ib, Ic = np.sort(eigenvalues)  # Sort moments of inertia
-
-    # Adjust for linear molecules
-    if len(symbols) <= 3:  # Assuming linear for diatomic and triatomic
-        Ia = 0  # Set the moment of inertia along the molecular axis to zero
+    Ia, Ib, Ic = np.sort(eigenvalues)
 
     return Ia, Ib, Ic
-
 def pre_exponential_factor(m, T, sigma, Ia, Ib, Ic):
     """Calculate the pre-exponential factor (v) for desorption."""
     kB = 1.380649e-23  # Boltzmann constant in J/K
@@ -275,12 +276,12 @@ def pre_exponential_factor(m, T, sigma, Ia, Ib, Ic):
 
     # Rotational contribution (considering Ia = 0 for linear molecules)
     if Ia == 0:
-        rotational_part = (8 * pi**2 * kB * T / h**2)**(3 / 2) * math.sqrt(Ib * Ic)
+        rotational_part = (8 * pi**2 * kB * T / h**2) * (Ib / sigma)
     else:
-        rotational_part = (8 * pi**2 * kB * T / h**2)**(3 / 2) * math.sqrt(Ia * Ib * Ic)
+        rotational_part = (pi**0.5 / sigma)*(8 * pi**2 * kB * T / h**2)**(3 / 2) * math.sqrt(Ia * Ib * Ic)
 
     # Final pre-exponential factor
-    v = ((kB * T) / h) * translational_part * (pi**0.5 / sigma) * rotational_part
+    v = ((kB * T) / h) * translational_part  * rotational_part
 
     return v
 
@@ -337,12 +338,17 @@ def main():
         logger.info(
             calculation_msg(mol_col, mol, mol_lot)
         )    
-    
+        #Define basic variables of the molecule
         mol_xyz = get_xyz(mol_col,mol,mol_lot)  
         sym_num = sym_num(mol_xyz)
-        mol_mass = get_mass(mol_xyz)
-    
-        Ia, Ib, Ic = get_moments_of_inertia(xyz)
+        symbols, coordinates = parse_coordinates(mol_xyz)
+        mol_mass = get_mass(symbols)
+
+        #Alings cords with the z axis
+        align_coors = salign_to_z_axis(symbols, coordinates)
+
+        #Calculate moment of inertia
+        Ia, Ib, Ic = get_moments_of_inertia(symbols, coordinates)
         logger.info(f"Principal moments of inertia for {mol} (kg·m²): Ia={Ia:.3e}, Ib={Ib:.3e}, Ic={Ic:.3e}")
     
         v = pre_exponential_factor(mol_mass, temp, sym_num, Ia, Ib, Ic)
