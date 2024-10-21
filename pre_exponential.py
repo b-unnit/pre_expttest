@@ -77,12 +77,12 @@ This CLI is part of the Binding Energy Evaluation Platform (BEEP).
     )
     parser.add_argument(
         "--level-of-theory",
-        default=["blyp_def2-svp"],
+        default="blyp_def2-svp",
         help="The level of theory in which the molecule is optimized, in the format: method_basis (default: blyp_def2-svp)",
     )          
     parser.add_argument(
         "--temperature",
-        default=["10"],
+        default=10,
         help="Temperature for the calculation, in K (default: 10)",
     )  
 
