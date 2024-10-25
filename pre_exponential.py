@@ -320,6 +320,23 @@ def pre_exponential_factor(
     return [single_T(T) for T in T_list]
 
 
+def new_logger(
+    mol:str, mol_lot: str,file_name: str
+) -> None: 
+    "
+    Creates a new logger function 
+    "
+    new_logger = logging.getLogger(f"{file_name}_{mol}")
+    new_logger.setLevel(logging.INFO)
+
+    # File handler for logging to a file
+    log_file = (
+        f"{file_name}_{mol}_{mol_lot}.log"
+    )
+    new_file_handler = logging.FileHandler(log_file)
+    new_file_handler.setFormatter(logging.Formatter("%(message)s"))
+    new_logger.addHandler(file_handler)
+
 def main():
     # Call the arguments
     args = parse_arguments()
@@ -338,6 +355,7 @@ def main():
 
     logger.info(welcome_msg)
 
+    #Client from where the xyz will be retrived
     client = ptl.FractalClient(  
         address=args.client_address,
         verify=False,
@@ -346,15 +364,14 @@ def main():
     )
 
     #Name of the molecule and level of theory    
-    mol = args.molecule
     mol_col = args.molecule_collection
     mol_lot = args.level_of_theory
     temperature_range = args.range_of_temperature.split()
     T_list = list(range(int(temperature_range[0]), int(temperature_range[1]), 1))
+    mol = args.molecule
 
     #Check for collection existence
     check_collection_existence(client, mol_col)
-
 
     if mol == "all": 
         for molecule in mol_col?
@@ -387,7 +404,7 @@ def main():
         Ia, Ib, Ic = get_moments_of_inertia(symbols, coordinates)
         logger.info(f"Principal moments of inertia for {mol} (kg·m²): Ia={Ia:.3e}, Ib={Ib:.3e}, Ic={Ic:.3e}")
     
-        v = pre_exponential_factor(mol_mass, temp, sym_num, Ia, Ib, Ic)
+        v = pre_exponential_factor(mol_mass, T_list, sym_num, Ia, Ib, Ic)
         logger.info(f"Pre-exponential factor for {mol} (v): {v:.3e} s⁻¹")
 
 
