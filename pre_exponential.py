@@ -36,7 +36,8 @@ Starting the calculation of the pre-exponential factor of the molecule {mol} in 
     """
 
 
-def parse_arguments() -> argparse.Namespace:
+def parse_arguments(
+) -> argparse.Namespace:
     """
     Parse command line arguments for the script.
 
@@ -46,7 +47,6 @@ def parse_arguments() -> argparse.Namespace:
     parser = argparse.ArgumentParser(
         description="""
 A command line interface to calculate the pre-exponential factor of a given molecule inside of a collcetion.
-This CLI is part of the Binding Energy Evaluation Platform (BEEP).
     """
     )
 
@@ -81,9 +81,9 @@ This CLI is part of the Binding Energy Evaluation Platform (BEEP).
         help="The level of theory in which the molecule is optimized, in the format: method_basis (default: blyp_def2-svp)",
     )          
     parser.add_argument(
-        "--temperature",
-        default=10,
-        help="Temperature for the calculation, in K (default: 10)",
+        "--Range of temperature",
+        default=10 273,
+        help="Range of temperature in K (default: 10 273)",
     )  
 
   
@@ -94,7 +94,7 @@ def check_collection_existence(
     client: FractalClient,
     collection: List,
     collection_type: str = "OptimizationDataset",
-):
+) -> None:
     """
     Check the existence of collections and raise DatasetNotFound error if not found.
 
@@ -142,7 +142,8 @@ def check_optimized_molecule(
 
 
 def get_xyz(
-    dataset: str, mol_name: str, level_theory: str, collection_type: str = "OptimizationDataset") -> str:
+    dataset: str, mol_name: str, level_theory: str, collection_type: str = "OptimizationDataset"
+) -> str:
     """
     Extract the xyz of the molecule
 
@@ -166,7 +167,8 @@ def get_xyz(
 
 
 def get_mass(
-    symbols: list) -> float:
+    symbols: list
+) -> float:
     """
     Calculates the mass of a molecule. Utilizes the molmass package. Caps must be correctly used, so its extracted from the xyz.
     """
@@ -177,7 +179,8 @@ def get_mass(
 
 
 def sym_num(
-    xyz: str):
+    xyz: str
+) -> int:
     """
     Gives the symmetry number from the xyz (doesnt work with linear molecules)
     Symmetry numbers given by tables By P. W. ATKINS, M. S. CHILD, and C. S. G. PHILLIPS
@@ -211,8 +214,13 @@ def sym_num(
 
     return(group_to_number.get(pg))
 
-def parse_coordinates(input_string):
-    """Parse atomic symbols and their xyz coordinates."""
+def parse_coordinates(
+  xyz: str
+) -> list:
+    """
+    Parse atomic symbols and their xyz coordinates.
+    """
+  
     symbols, coordinates = [], []
     for line in input_string.strip().splitlines():
         parts = line.split()
@@ -220,8 +228,13 @@ def parse_coordinates(input_string):
         coordinates.append(list(map(float, parts[1:])))
     return symbols, np.array(coordinates)
 
-def align_to_z_axis(symbols, coordinates, threshold=1e-8):
-    """Align the molecule along the z-axis and zero out small values across all axes."""
+def align_to_z_axis(
+  symbols: list, coordinates: list, threshold=1e-8
+):
+    """
+    Align the molecule along the z-axis and zero out small values across all axes.
+    """
+  
     masses = np.array([get_mass(sym) for sym in symbols])
     total_mass = np.sum(masses)
 
@@ -242,8 +255,13 @@ def align_to_z_axis(symbols, coordinates, threshold=1e-8):
     return aligned_coords
 
 
-def get_moments_of_inertia(symbols, coordinates):
-    """Calculate the moments of inertia after alignment."""
+def get_moments_of_inertia(
+  symbols: list, coordinates: list
+) -> float:
+    """
+    Calculate the moments of inertia after alignment.
+    """
+  
     masses = np.array([get_mass(sym) for sym in symbols])
     coords = coordinates * 1e-10  # Convert to meters
 
@@ -265,25 +283,40 @@ def get_moments_of_inertia(symbols, coordinates):
     Ia, Ib, Ic = np.sort(eigenvalues)
 
     return Ia, Ib, Ic
-def pre_exponential_factor(m, T, sigma, Ia, Ib, Ic):
-    """Calculate the pre-exponential factor (v) for desorption."""
+
+
+def pre_exponential_factor(
+  m: float, T_list: list, sigma: int, Ia: float, Ib: float, Ic: float
+) -> list:
+    """
+    Calculate the pre-exponential factor (v) for desorption.
+    """
+  
     kB = 1.380649e-23  # Boltzmann constant in J/K
     h = 6.62607015e-34  # Planck's constant in J·s
     pi = math.pi
 
-    # Translational contribution
-    translational_part = ((2 * pi * m * kB * T) / h**2)**(3 / 2)
+    # Define a helper function to compute v for a single temperature
+    def single_T(
+      T: float
+    ) -> float:
+      """
+      Runs the calculation for v of a single temperature value
+      """
+        # Translational contribution
+        translational_part = ((2 * pi * m * kB * T) / h**2)**(3 / 2)
 
-    # Rotational contribution (considering Ia = 0 for linear molecules)
-    if Ia == 0:
-        rotational_part = (8 * pi**2 * kB * T / h**2) * (Ib / sigma)
-    else:
-        rotational_part = (pi**0.5 / sigma)*(8 * pi**2 * kB * T / h**2)**(3 / 2) * math.sqrt(Ia * Ib * Ic)
+        # Rotational contribution (considering Ia = 0 for linear molecules)
+        if Ia == 0:
+            rotational_part = (8 * pi**2 * kB * T / h**2) * (Ib / sigma)
+        else:
+            rotational_part = (pi**0.5 / sigma)*(8 * pi**2 * kB * T / h**2)**(3 / 2) * math.sqrt(Ia * Ib * Ic)
 
-    # Final pre-exponential factor
-    v = ((kB * T) / h) * translational_part  * rotational_part
+        # Final pre-exponential factor
+        return ((kB * T) / h) * translational_part * rotational_part
 
-    return v
+    return [single_T(T) for T in T_list]
+
 
 def main():
     # Call the arguments
