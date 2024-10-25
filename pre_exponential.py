@@ -67,8 +67,8 @@ A command line interface to calculate the pre-exponential factor of a given mole
     )
     parser.add_argument(
         "--molecule",
-        required=True,
-        help="Molecule to be sampled (from a QCFractal OptimizationDataSet collection). Type 'all' to calculate all molecules in a collection",
+        default = "all"
+        help="Molecule to be sampled (from a QCFractal OptimizationDataSet collection). 'all' calculates all molecules in a collection (default: all)",
     )
     parser.add_argument(
         "--molecule-collection",
@@ -81,7 +81,7 @@ A command line interface to calculate the pre-exponential factor of a given mole
         help="The level of theory in which the molecule is optimized, in the format: method_basis (default: blyp_def2-svp)",
     )          
     parser.add_argument(
-        "--Range of temperature",
+        "--range of temperature",
         default=10 273,
         help="Range of temperature in K (default: 10 273)",
     )  
@@ -347,8 +347,9 @@ def main():
     mol = args.molecule
     mol_col = args.molecule_collection
     mol_lot = args.level_of_theory
-    temp = args.temperature
-    
+    temperature_range = args.range_of_temperature.split()
+    T_list = list(range(int(temperature_range[0]), int(temperature_range[1]), 1))
+
     #Check for collection existence
     check_collection_existence(client, mol_col)
 
