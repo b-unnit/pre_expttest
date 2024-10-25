@@ -174,7 +174,7 @@ def get_mass(
     """
     mol_form = ''.join(symbols)
     f = Formula(mol_form)
-    mass = f.mass * 1.66053906660e-27 #convert masses to kg
+    mass = f.mass * qcel.constants.conversion_factor("mu", "kg") #convert masses to kg
     return(mass)
 
 
@@ -214,6 +214,7 @@ def sym_num(
 
     return(group_to_number.get(pg))
 
+
 def parse_coordinates(
   xyz: str
 ) -> list:
@@ -227,6 +228,7 @@ def parse_coordinates(
         symbols.append(parts[0])
         coordinates.append(list(map(float, parts[1:])))
     return symbols, np.array(coordinates)
+
 
 def align_to_z_axis(
   symbols: list, coordinates: list, threshold=1e-8
@@ -263,7 +265,7 @@ def get_moments_of_inertia(
     """
   
     masses = np.array([get_mass(sym) for sym in symbols])
-    coords = coordinates * 1e-10  # Convert to meters
+    coords = coordinates * qcel.constants.conversion_factor("Angstrom", "m")  # Convert to meters
 
     # Initialize the inertia tensor
     I = np.zeros((3, 3))
@@ -292,8 +294,8 @@ def pre_exponential_factor(
     Calculate the pre-exponential factor (v) for desorption.
     """
   
-    kB = 1.380649e-23  # Boltzmann constant in J/K
-    h = 6.62607015e-34  # Planck's constant in J·s
+    kB = qcel.constants.get("kb")  # Boltzmann constant in J/K
+    h = qcel.constants.get("h")  # Planck's constant in J·s
     pi = math.pi
 
     # Define a helper function to compute v for a single temperature
