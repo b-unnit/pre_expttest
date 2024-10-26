@@ -81,7 +81,7 @@ A command line interface to calculate the pre-exponential factor of a given mole
         help="The level of theory in which the molecule is optimized, in the format: method_basis (default: blyp_def2-svp)",
     )          
     parser.add_argument(
-        "--range of temperature",
+        "--range-of-temperature",
         default=10 273,
         help="Range of temperature in K (default: 10 273)",
     )  
