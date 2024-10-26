@@ -330,10 +330,10 @@ def new_logger(
     new_logger.setLevel(logging.INFO)
 
     # File handler for logging to a file
-    log_file = (
+    new_log_file = (
         f"{file_name}_{mol}_{mol_lot}.log"
     )
-    new_file_handler = logging.FileHandler(log_file)
+    new_file_handler = logging.FileHandler(new_log_file)
     new_file_handler.setFormatter(logging.Formatter("%(message)s"))
     new_logger.addHandler(file_handler)
 
@@ -374,15 +374,33 @@ def main():
     check_collection_existence(client, mol_col)
 
     if mol == "all": 
-        for molecule in mol_col?
+        for molecule in mol_col:
         # Check if all the molecules are optimized at the requested level of theory
-        check_optimized_molecule(mol_col, mol_lot, mol)
-    
+        check_optimized_molecule(mol_col, mol_lot, molecule)
         logger.info(
-            calculation_msg(mol_col, mol, mol_lot)
-        )
-                
-        #WRITE THE FOR CYCLE
+            calculation_msg(mol_col, molecule, mol_lot)
+        )    
+        #Define basic variables of the molecule
+        mol_xyz = get_xyz(mol_col,molecule,mol_lot)  
+        sym_num = sym_num(mol_xyz)
+        symbols, coordinates = parse_coordinates(mol_xyz)
+        mol_mass = get_mass(symbols)
+
+        #Alings cords with the z axis
+        align_coors = align_to_z_axis(symbols, coordinates)
+
+        #Calculate moment of inertia
+        Ia, Ib, Ic = get_moments_of_inertia(symbols, coordinates)
+        logger.info(f"Principal moments of inertia for {molecule} (kg·m²): Ia={Ia:.3e}, Ib={Ib:.3e}, Ic={Ic:.3e}")
+
+        new_logger(molecule, mol_lot, m_inertia)
+        new_logger.info(f"{Ia} {Ib} {Ic}")
+        
+        v = pre_exponential_factor(mol_mass, T_list, sym_num, Ia, Ib, Ic)
+        logger.info(f"Pre-exponential factor for {molecule} (v): {v:.3e} s⁻¹")
+
+        new_logger(molecule, mol_lot, pre_exp_factor)
+        new_logger.info(f"{v}")
         
     else:   
         # Check if the molecule is optimized at the requested level of theory
@@ -403,10 +421,15 @@ def main():
         #Calculate moment of inertia
         Ia, Ib, Ic = get_moments_of_inertia(symbols, coordinates)
         logger.info(f"Principal moments of inertia for {mol} (kg·m²): Ia={Ia:.3e}, Ib={Ib:.3e}, Ic={Ic:.3e}")
-    
+
+        new_logger(mol, mol_lot, m_inertia)
+        new_logger.info(f"{Ia} {Ib} {Ic}")
+        
         v = pre_exponential_factor(mol_mass, T_list, sym_num, Ia, Ib, Ic)
         logger.info(f"Pre-exponential factor for {mol} (v): {v:.3e} s⁻¹")
 
+        new_logger(mol, mol_lot, pre_exp_factor)
+        new_logger.info(f"{v}")
 
     if __name__ == "__main__":
     main()
