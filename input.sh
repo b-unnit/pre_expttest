@@ -5,4 +5,4 @@ python PATH/TO/FILE/pre_exponential.py
     --molecule '' \
     --molecule-collection '' \
     --level-of-theory '' \
-    --temperature '' \
+    --range-of-temperature '' \
