@@ -67,7 +67,8 @@ A command line interface to calculate the pre-exponential factor of a given mole
     )
     parser.add_argument(
         "--molecule",
-        default = "all"
+        type=list #buscar como que sea list
+        default=""
         help="Molecule to be sampled (from a QCFractal OptimizationDataSet collection). 'all' calculates all molecules in a collection (default: all)",
     )
     parser.add_argument(
@@ -299,7 +300,7 @@ def pre_exponential_factor(
     pi = math.pi
 
     # Define a helper function to compute v for a single temperature
-    def single_T(
+    def _single_T(
       T: float
     ) -> float:
       """
@@ -317,7 +318,7 @@ def pre_exponential_factor(
         # Final pre-exponential factor
         return ((kB * T) / h) * translational_part * rotational_part
 
-    return [single_T(T) for T in T_list]
+    return [_single_T(T) for T in T_list
 
 
 def new_logger(
@@ -374,7 +375,7 @@ def main():
     check_collection_existence(client, mol_col)
 
     if mol == "all": 
-        for molecule in mol_col:
+        for molecule in mol_col.df.index:
         # Check if all the molecules are optimized at the requested level of theory
         check_optimized_molecule(mol_col, mol_lot, molecule)
         logger.info(
