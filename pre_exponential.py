@@ -5,6 +5,7 @@ import qcportal as ptl
 from molmass import Formula   # this is used to obtain the mass of the molecule
 import qcelemental as qcel # needed by molsym
 import molsym # for the symmetry point
+from beep.utils import logging_utils as bp_log
 
 welcome_msg = """       
                   Welcome to the Pre-Exponential factor calculator! 
@@ -67,8 +68,8 @@ A command line interface to calculate the pre-exponential factor of a given mole
     )
     parser.add_argument(
         "--molecule",
-        type=list #buscar como que sea list
-        default=""
+        nargs='+',
+        default=None,
         help="Molecule to be sampled (from a QCFractal OptimizationDataSet collection). 'all' calculates all molecules in a collection (default: all)",
     )
     parser.add_argument(
@@ -318,33 +319,16 @@ def pre_exponential_factor(
         # Final pre-exponential factor
         return ((kB * T) / h) * translational_part * rotational_part
 
-    return [_single_T(T) for T in T_list
+    return [_single_T(T) for T in T_list]
 
-
-def new_logger(
-    mol:str, mol_lot: str,file_name: str
-) -> None: 
-    "
-    Creates a new logger function 
-    "
-    new_logger = logging.getLogger(f"{file_name}_{mol}")
-    new_logger.setLevel(logging.INFO)
-
-    # File handler for logging to a file
-    new_log_file = (
-        f"{file_name}_{mol}_{mol_lot}.log"
-    )
-    new_file_handler = logging.FileHandler(new_log_file)
-    new_file_handler.setFormatter(logging.Formatter("%(message)s"))
-    new_logger.addHandler(file_handler)
 
 def main():
     # Call the arguments
     args = parse_arguments()
 
     # Create a logger
-    logger = logging.getLogger("preexpt_calc")
-    logger.setLevel(logging.INFO)
+    main_logger = logging.getLogger("preexpt_calc")
+    main_logger.setLevel(logging.INFO)
 
     # File handler for logging to a file
     log_file = (
@@ -352,9 +336,9 @@ def main():
     )
     file_handler = logging.FileHandler(log_file)
     file_handler.setFormatter(logging.Formatter("%(message)s"))
-    logger.addHandler(file_handler)
+    main_logger.addHandler(file_handler)
 
-    logger.info(welcome_msg)
+    main_logger.info(welcome_msg)
 
     #Client from where the xyz will be retrived
     client = ptl.FractalClient(  
@@ -374,11 +358,13 @@ def main():
     #Check for collection existence
     check_collection_existence(client, mol_col)
 
-    if mol == "all": 
-        for molecule in mol_col.df.index:
-        # Check if all the molecules are optimized at the requested level of theory
+    if mol == None: 
+        mol = [mol_col.df.index]
+    
+    for molecule in mol:
+        # Check if all the molecule is optimized at the requested level of theory
         check_optimized_molecule(mol_col, mol_lot, molecule)
-        logger.info(
+        main_logger.info(
             calculation_msg(mol_col, molecule, mol_lot)
         )    
         #Define basic variables of the molecule
@@ -386,51 +372,22 @@ def main():
         sym_num = sym_num(mol_xyz)
         symbols, coordinates = parse_coordinates(mol_xyz)
         mol_mass = get_mass(symbols)
-
-        #Alings cords with the z axis
-        align_coors = align_to_z_axis(symbols, coordinates)
-
-        #Calculate moment of inertia
-        Ia, Ib, Ic = get_moments_of_inertia(symbols, coordinates)
-        logger.info(f"Principal moments of inertia for {molecule} (kg·m²): Ia={Ia:.3e}, Ib={Ib:.3e}, Ic={Ic:.3e}")
-
-        new_logger(molecule, mol_lot, m_inertia)
-        new_logger.info(f"{Ia} {Ib} {Ic}")
-        
-        v = pre_exponential_factor(mol_mass, T_list, sym_num, Ia, Ib, Ic)
-        logger.info(f"Pre-exponential factor for {molecule} (v): {v:.3e} s⁻¹")
-
-        new_logger(molecule, mol_lot, pre_exp_factor)
-        new_logger.info(f"{v}")
-        
-    else:   
-        # Check if the molecule is optimized at the requested level of theory
-        check_optimized_molecule(mol_col, mol_lot, mol)
     
-        logger.info(
-            calculation_msg(mol_col, mol, mol_lot)
-        )    
-        #Define basic variables of the molecule
-        mol_xyz = get_xyz(mol_col,mol,mol_lot)  
-        sym_num = sym_num(mol_xyz)
-        symbols, coordinates = parse_coordinates(mol_xyz)
-        mol_mass = get_mass(symbols)
-
         #Alings cords with the z axis
         align_coors = align_to_z_axis(symbols, coordinates)
-
-        #Calculate moment of inertia
+    
+        #Calculate moment of inertia and add it to the main log file and an individual one
         Ia, Ib, Ic = get_moments_of_inertia(symbols, coordinates)
-        logger.info(f"Principal moments of inertia for {mol} (kg·m²): Ia={Ia:.3e}, Ib={Ib:.3e}, Ic={Ic:.3e}")
-
-        new_logger(mol, mol_lot, m_inertia)
-        new_logger.info(f"{Ia} {Ib} {Ic}")
-        
+        main_logger.info(f"Principal moments of inertia for {molecule} (kg·m²): Ia={Ia:.3e}, Ib={Ib:.3e}, Ic={Ic:.3e}")
+        bp_log.setup_logging("I",molecule)
+        logger.info(f"{Ia} {Ib} {Ic}")
+    
+        #Calculate the preexponential factor and add it to the main log file and an individual one
         v = pre_exponential_factor(mol_mass, T_list, sym_num, Ia, Ib, Ic)
-        logger.info(f"Pre-exponential factor for {mol} (v): {v:.3e} s⁻¹")
-
-        new_logger(mol, mol_lot, pre_exp_factor)
-        new_logger.info(f"{v}")
+        main_logger.info(f"Pre-exponential factor for {molecule} (v): {v:.3e} s⁻¹")
+        bp_log.setup_logging("v", molecule)
+        logger.info(f"{v}")
+        
 
     if __name__ == "__main__":
     main()
